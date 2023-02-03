@@ -1,0 +1,75 @@
+version: "3.7"
+
+services:
+  nginx:
+    build: ./requirements/nginx
+    image: nginx
+    container_name: nginx
+    ports:
+      - 443:443
+    volumes:
+      - wordpress-nginx:/var/www/wordpress
+    networks:
+      - nginx-wordpress-network
+    env_file:
+      .env
+    depends_on:
+      - wordpress
+    restart:
+      on-failure
+
+  mariadb:
+    build: ./requirements/mariadb
+    image: mariadb
+    container_name: mariadb
+    volumes:
+      - mariadb:/var/lib/mysql
+    networks:
+      - nginx-wordpress-network
+    env_file:
+      .env
+    expose:
+      - 3306
+    restart:
+      on-failure
+    healthcheck:
+      test: "mysql -u${MYSQL_USER} -p${MYSQL_PASSWORD} ${MYSQL_DATABASE} -e 'SELECT 1'"
+      interval: 1s
+      retries: 60
+
+  wordpress:
+    build: ./requirements/wordpress
+    image: wordpress
+    container_name: wordpress
+    volumes:
+      - wordpress-nginx:/var/www/wordpress
+    networks:
+      - nginx-wordpress-network
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    env_file:
+      .env
+    expose:
+      - 9000
+    restart:
+      on-failure
+
+
+networks:
+  nginx-wordpress-network:
+
+
+volumes:
+  wordpress-nginx:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/gmorange/data/wordpress-nginx
+  mariadb:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/gmorange/data/mariadb
